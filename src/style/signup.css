@@ -1,0 +1,53 @@
+/* Dots Alignment and Styling */
+.dot {
+    position: absolute;
+    border-radius: 50%;
+  }
+  
+  /* Dot sizes */
+  .dot-small {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .dot-medium {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .dot-large {
+    width: 24px;
+    height: 24px;
+  }
+  
+  /* Dot colors */
+  .dot-blue {
+    background-color: #618BDA; /* Blue */
+  }
+  
+  .dot-green {
+    background-color: #56D9B9; /* Greenish-Blue */
+  }
+  
+  /* Positioning dots on the SignUp page */
+  .dot1 {
+    top: 170px;
+    left: 40px;
+  }
+  
+  
+  .dot3 {
+    top: 250px;
+    left: 10px;
+  }
+  
+  .dot4 {
+    top: 300px;
+    left: 20px;
+  }
+  
+  .dot5 {
+    top: 350px;
+    left: 100px;
+  }
+  
