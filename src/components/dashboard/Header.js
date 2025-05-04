@@ -1,16 +1,25 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getProfile } from '../../redux/action/auth';
-import { User } from 'lucide-react'; // For fallback avatar
+import React, { useEffect, useState } from 'react';
+import { User } from 'lucide-react';
+import { auth } from '../../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const Header = () => {
-  const dispatch = useDispatch();
-  const { profile } = useSelector((state) => state.auth);
+  const [profile, setProfile] = useState(null);
 
-  // Fetch profile on mount
+  // Fetch current user profile on mount
   useEffect(() => {
-    dispatch(getProfile());
-  }, [dispatch]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setProfile({
+          name: user.displayName || user.email.split('@')[0],
+          profilePhoto: user.photoURL || null,
+        });
+      } else {
+        setProfile(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div className='flex justify-between items-center bg-white p-4 shadow-md border-b border-gray-200'>

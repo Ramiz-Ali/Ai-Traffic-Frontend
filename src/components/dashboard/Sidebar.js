@@ -1,6 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { routes } from "../../contant";
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebase";
 
 const Sidebar = ({ setActiveSection, activeSection }) => {
   const navigate = useNavigate();
@@ -10,9 +12,13 @@ const Sidebar = ({ setActiveSection, activeSection }) => {
     setActiveSection(section);
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    navigate(routes.signin);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      navigate(routes.signin);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
@@ -54,6 +60,17 @@ const Sidebar = ({ setActiveSection, activeSection }) => {
           >
             <i className="fas fa-tasks text-lg"></i>
             <span className="text-sm font-medium">Activities</span>
+          </li>
+          <li
+            className={`flex items-center space-x-3 px-6 py-3 mx-2 rounded-lg cursor-pointer transition-all duration-200 ${
+              activeSection === "Results"
+                ? "bg-[#b21f1f] text-white shadow-md"
+                : "hover:bg-[#2b3a7d] hover:text-[#fdbb2d]"
+            }`}
+            onClick={() => handleNavigation("Results")}
+          >
+            <i className="fas fa-chart-line text-lg"></i>
+            <span className="text-sm font-medium">Results</span>
           </li>
         </ul>
       </nav>

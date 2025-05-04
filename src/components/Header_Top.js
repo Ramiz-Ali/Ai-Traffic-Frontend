@@ -1,11 +1,36 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { Facebook, Linkedin, Twitter, Instagram, Youtube } from 'lucide-react';
 import { routes } from '../contant';
 import { useNavigate } from 'react-router-dom';
+import { auth } from '../firebase'; // Adjust path if firebase.js is elsewhere
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { toast } from 'react-toastify';
 
 const Header_Top = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null); // Track authenticated user
+
+  // Listen for authentication state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser); // Update user state
+    });
+
+    return () => unsubscribe(); // Clean up listener on unmount
+  }, []);
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      toast.success('Signed out successfully!');
+      navigate(routes.signin);
+    } catch (error) {
+      toast.error('Failed to sign out. Please try again.');
+    }
+  };
+
   const socialIcons = [
     { name: 'Facebook', icon: Facebook },
     { name: 'Linkedin', icon: Linkedin },
@@ -46,26 +71,27 @@ const Header_Top = () => {
           ))}
         </div>
 
-        {/* Right Section: Login/Register or Subscription Status */}
+        {/* Right Section: Login/Register or User Info */}
         <div className='flex items-center space-x-4'>
-          {localStorage.getItem('token') ? (
+          {user ? (
             <>
               <div className='border-l-2 border-gray-300 max-h-full'></div>
-              <div className='flex gap-1'>
-                <button className='text-sm text-gray-800 hover:text-blue-600'>
-                  Welcome To Ai Traffic Management System 
-                </button>
+              <div className='flex gap-1 items-center'>
+                <span className='text-sm text-gray-800'>
+                  Welcome To Ai Traffic Management System
+                </span>
+               
               </div>
             </>
           ) : (
             <div className='flex space-x-4'>
               <div className='border-l-2 border-gray-300 max-h-full'></div>
-              <div className='flex gap-1' onClick={() => navigate(routes.signin)}>
+              <div className='flex gap-1 cursor-pointer' onClick={() => navigate(routes.signin)}>
                 <Icons.User className='w-4 text-gray-700' />
                 <button className='text-sm text-gray-800 hover:text-blue-600'>Log In</button>
               </div>
               <div className='border-l-2 border-gray-300 max-h-full'></div>
-              <div className='flex gap-1' onClick={() => navigate(routes.signup)}>
+              <div className='flex gap-1 cursor-pointer' onClick={() => navigate(routes.signup)}>
                 <Icons.UserRoundPen className='w-4 text-gray-700' />
                 <button className='text-sm text-gray-800 hover:text-blue-600'>Register Now</button>
               </div>

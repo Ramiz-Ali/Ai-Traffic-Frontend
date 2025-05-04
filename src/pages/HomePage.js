@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Header from '../components/Header';
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -9,14 +9,30 @@ import { routes } from '../contant/index.js';
 import UploadVideos from '../components/Upload_Videos.js';
 import Footer from '../components/Footer.js';
 import videoFile from "../assets/image/videoplayback.mp4";
+import { auth } from '../firebase'; // Adjust path if firebase.js is elsewhere
+import { onAuthStateChanged } from 'firebase/auth';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const authenticate = localStorage.getItem('token');
-  console.log(authenticate);
+  const [user, setUser] = useState(null); // Track authenticated user
 
   // Create a reference to the "Upload Videos" section
   const uploadVideosRef = useRef(null);
+
+  // Listen for authentication state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('Current user:', currentUser); // Debug: Log user state
+      if (currentUser) {
+        setUser(currentUser); // User is signed in
+      } else {
+        setUser(null); // User is not signed in
+        navigate(routes.signin); // Redirect to sign-in page
+      }
+    });
+
+    return () => unsubscribe(); // Clean up listener on unmount
+  }, [navigate]);
 
   // Function to scroll to the "Upload Videos" section
   const scrollToUploadVideos = () => {

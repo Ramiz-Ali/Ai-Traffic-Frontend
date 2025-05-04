@@ -4,29 +4,55 @@ import * as XLSX from 'xlsx';
 import { routes } from '../../contant';
 import { useNavigate } from 'react-router-dom';
 import { Circles } from 'react-loader-spinner';
-import {
-  getUserList,
-  createEmployee,
-  updateUser,
-  deleteUser,
-} from '../../redux/action/auth';
-import { useDispatch, useSelector } from 'react-redux';
 import { Pencil, Trash2 } from 'lucide-react';
+import { auth, db } from '../../firebase';
+import {
+  collection,
+  getDocs,
+  setDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const User = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { userslist } = useSelector((state) => state.auth);
+  const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [isToolTipOpen, setIsToolTipOpen] = useState(null);
 
   useEffect(() => {
-    dispatch(getUserList());
-    const timer = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(timer);
-  }, [dispatch]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigate(routes.signin);
+      } else {
+        fetchUsers();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, 'users'));
+      const users = querySnapshot.docs.map((doc) => ({
+        _id: doc.id,
+        ...doc.data(),
+        registerDate: doc.data().registerDate?.toDate() || new Date(),
+      }));
+      setUsersList(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users.', { position: 'top-right' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -36,53 +62,86 @@ const User = () => {
   });
 
   useEffect(() => {
-    let count = 1;
-    for (let x = 0; x < userslist?.length; x++) {
-      if (userslist[x]?.userType === 'Admin') count += 1;
+    let adminCount = 1;
+    for (let x = 0; x < usersList.length; x++) {
+      if (usersList[x]?.userType === 'Admin') adminCount += 1;
     }
-    setFormData((prev) => ({ ...prev, employeeCode: `A00${count}` }));
-  }, [userslist]);
+    setFormData((prev) => ({ ...prev, employeeCode: `A00${adminCount}` }));
+  }, [usersList]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (formData.name && formData.email && formData.employeeCode) {
+      try {
+        let adminCount = 1;
+        for (let x = 0; x < usersList.length; x++) {
+          if (usersList[x]?.userType === 'Admin') adminCount += 1;
+        }
+
+        const userDocRef = doc(db, 'users', formData.email); // Use email as temp ID, should be UID
+        await setDoc(userDocRef, {
+          name: formData.name,
+          email: formData.email,
+          userType: 'Admin',
+          role: 'admin',
+          registerDate: new Date(),
+          employeeCode: formData.employeeCode,
+        });
+        toast.success('Admin created successfully!', { position: 'top-right' });
+        setIsModalOpen(false);
+        setFormData({
+          name: '',
+          email: '',
+          password: '',
+          employeeCode: `A00${adminCount + 1}`,
+        });
+        fetchUsers();
+      } catch (error) {
+        console.error('Error creating admin:', error);
+        toast.error('Failed to create admin.', { position: 'top-right' });
+      }
+    } else {
+      toast.error('Please fill in all required fields', { position: 'top-right' });
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.name && formData.email && formData.password && formData.employeeCode) {
-      dispatch(createEmployee(formData));
-      setIsModalOpen(false);
-      setTimeout(() => dispatch(getUserList()), 2000);
-      setFormData({ name: '', email: '', password: '', employeeCode: formData.employeeCode });
-    } else {
-      toast.error('Please fill in all required fields');
+  const handleEdit = (user) => setEditUser(user);
+
+  const handleSaveEdit = async () => {
+    if (editUser) {
+      try {
+        const userDocRef = doc(db, 'users', editUser._id);
+        await updateDoc(userDocRef, {
+          name: editUser.name,
+          phone: editUser.phone,
+          email: editUser.email,
+          userType: editUser.userType,
+          role: editUser.userType === 'Admin' ? 'admin' : 'user',
+        });
+        toast.success('User updated successfully!', { position: 'top-right' });
+        fetchUsers();
+        setEditUser(null);
+      } catch (error) {
+        console.error('Error updating user:', error);
+        toast.error('Failed to update user.', { position: 'top-right' });
+      }
     }
   };
 
-  const handleEdit = (user) => setEditUser(user);
-
-  const handleSaveEdit = () => {
-    const data = {
-      email: editUser?.email,
-      name: editUser?.name,
-      phone: editUser?.phone,
-      userType: editUser?.userType,
-    };
-    dispatch(updateUser(data, editUser?._id));
-    setTimeout(() => dispatch(getUserList()), 2000);
-    setEditUser(null);
-  };
-
   const handleExport = () => {
-    const exportData = userslist?.map((data) => ({
+    const exportData = usersList.map((data) => ({
       _id: data._id,
-      email: data?.email,
+      email: data.email,
       phone: data.phone,
-      address: data?.address,
-      verified: data?.verified,
-      userType: data?.userType,
-      registerDate: data?.registerDate,
+      address: data.address || '',
+      verified: data.verified || false,
+      userType: data.userType,
+      registerDate: data.registerDate.toLocaleDateString(),
     }));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -92,15 +151,26 @@ const User = () => {
 
   const openToolTip = (userId) => setIsToolTipOpen(userId);
   const closeToolTip = () => setIsToolTipOpen(null);
-  const confirmDelete = (userId) => {
-    dispatch(deleteUser(userId));
-    setTimeout(() => dispatch(getUserList()), 2000);
+  const confirmDelete = async (userId) => {
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      toast.success('User deleted successfully!', { position: 'top-right' });
+      fetchUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user.', { position: 'top-right' });
+    }
     closeToolTip();
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    navigate(routes.signin);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      navigate(routes.signin);
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout.', { position: 'top-right' });
+    }
   };
 
   return (
@@ -139,7 +209,7 @@ const User = () => {
                   </tr>
                 </thead>
                 <tbody className='divide-y divide-gray-200'>
-                  {userslist?.map((user, index) => (
+                  {usersList.map((user, index) => (
                     <tr
                       key={index}
                       className={`transition-colors duration-200 ${
@@ -160,7 +230,7 @@ const User = () => {
                         </span>
                       </td>
                       <td className='py-4 px-6 text-sm text-gray-600'>
-                        {new Date(user.registerDate).toLocaleDateString('en-US', {
+                        {user.registerDate.toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
